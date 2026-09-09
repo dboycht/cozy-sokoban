@@ -1,0 +1,24 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+/builds/
+
+# Imported translations (automatically generated)
+*.translation
+
+# Mono / C# specific
+.mono/
+data_*/
+mono_crash.*.json
+
+# System / editor
+*.tmp
+*.bak
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# 开发文档（只留开发副本，不入库）
+DEVELOPMENT.md
+ERROR.md
