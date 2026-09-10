@@ -31,6 +31,36 @@ func _ready() -> void:
 		add_child(p)
 		_pool.append(p)
 	_start_bgm()
+	# 自己接管关窗流程，好在退出前停声（见下方 _notification 注释）
+	get_tree().auto_accept_quit = false
+
+## 退出期资源泄漏的处理（见 ERROR.md #9）：
+## 直接退出时 AudioServer 里的 AudioStreamPlaybackWAV 还握着 wav 流，
+## 资源缓存先于音频服务器清理 → 报「ObjectDB instances leaked at exit / resources still in use」。
+## 所以：关窗请求先停声、松开流引用，给音频线程留一点时间再真正退出。
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_WM_CLOSE_REQUEST:
+			_graceful_quit()
+		NOTIFICATION_EXIT_TREE:
+			stop_all()
+
+func _graceful_quit() -> void:
+	stop_all()
+	if _bgm != null:
+		_bgm.stream = null
+	for p in _pool:
+		p.stream = null
+	await get_tree().create_timer(0.15).timeout
+	get_tree().quit()
+
+## 停掉所有声音（BGM + 音效池）。注意：AudioServer 需要走过一轮混音
+## 才会真正释放 playback，所以调用后应至少等一帧再退出。
+func stop_all() -> void:
+	if _bgm != null:
+		_bgm.stop()
+	for p in _pool:
+		p.stop()
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("mute"):
