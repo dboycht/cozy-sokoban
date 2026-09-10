@@ -60,22 +60,30 @@ func _build() -> void:
 	btn_start.pressed.connect(func() -> void: Global.start_level(0))
 	add_child(btn_start)
 
-	# ---- 选关区 ----
+	# ---- 选关区（多行网格，随关卡数自动排布）----
 	var sel_label := UI.make_label("选 择 关 卡", 15, UI.C_TEXT_LIGHT, true)
-	sel_label.position = Vector2(110, 402)
+	sel_label.position = Vector2(110, 390)
 	sel_label.size = Vector2(420, 22)
 	add_child(sel_label)
 
 	var total := Levels.count()
-	var btn_w := 62
-	var gap := 16
-	var total_w := total * btn_w + (total - 1) * gap
-	var start_x := 320.0 - total_w / 2.0
+	var per_row := 5
+	var btn_w := 52.0
+	var btn_h := 50.0
+	var gap := 12.0
+	var row_gap := 8.0
 	for i in total:
+		var row := int(i / float(per_row))
+		var col := i % per_row
+		var in_row := mini(per_row, total - row * per_row)
+		var row_w := in_row * btn_w + maxf(in_row - 1, 0) * gap
+		var bx := 320.0 - row_w / 2.0 + col * (btn_w + gap)
+		var by := 420.0 + row * (btn_h + row_gap)
+
 		var locked := not Global.is_unlocked(i)
-		var b := UI.make_button(str(i + 1), 22, UI.C_GREEN, UI.C_CREAM)
-		b.position = Vector2(start_x + i * (btn_w + gap), 434)
-		b.size = Vector2(btn_w, 54)
+		var b := UI.make_button(str(i + 1), 20, UI.C_GREEN, UI.C_CREAM)
+		b.position = Vector2(bx, by)
+		b.size = Vector2(btn_w, btn_h)
 		b.disabled = locked
 		if not locked:
 			var idx := i
