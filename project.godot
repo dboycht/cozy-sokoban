@@ -10,6 +10,7 @@ run/main_scene="res://scenes/title.tscn"
 config/version="1.0.1"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 config/icon="res://assets/sprites/icon.svg"
+config/windows_native_icon="res://assets/icons/cozy.ico"
 
 [autoload]
 
