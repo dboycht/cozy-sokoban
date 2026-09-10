@@ -26,6 +26,8 @@ var _grid: Dictionary = {}
 var _history: Array[Dictionary] = []
 var _steps := 0
 var _winning := false
+var _dead_cells: Dictionary = {}      # 死角格（推进去就再也救不回来）
+var _deadlock := false
 
 # ---- 视觉 ----
 var _board_origin := Vector2.ZERO
@@ -42,6 +44,7 @@ var _tutorial_root: Control
 var _celebrate_root: Control
 var _win_label: Label
 var _stats_label: Label
+var _stars_label: Label
 var _next_btn: Button
 
 func _ready() -> void:
@@ -221,6 +224,7 @@ func _build_celebrate_ui() -> void:
 	var stars := UI.make_label("★ ★ ★", 26, Color("#f4b942"), true)
 	stars.position = Vector2(140, 204)
 	stars.size = Vector2(360, 34)
+	_stars_label = stars
 	_celebrate_root.add_child(stars)
 
 	_stats_label = UI.make_label("", 16, UI.C_TEXT_LIGHT, true)
@@ -263,14 +267,54 @@ func load_level(index: int) -> void:
 	_winning = false
 	if _celebrate_root:
 		_celebrate_root.visible = false
+	_compute_dead_cells()
 	_rebuild_grid()
 	_build_board()
+	_update_deadlock()
 	_refresh_hud()
 
 func _refresh_hud() -> void:
 	_hud_steps.text = "%d 步" % _steps
 	_hud_title.text = "第 %d 关 · %s" % [Global.current_level + 1, Levels.level_name(Global.current_level)]
-	_hint_label.text = Levels.level_hint(Global.current_level)
+	_refresh_hint_text()
+
+## 底部提示行：平时是关卡提示；箱子进了死角就换成一句温柔的提醒（不弹窗、不打断）
+func _refresh_hint_text() -> void:
+	if _deadlock:
+		_hint_label.text = "这个木箱好像推进死角了…… 按 R 重来试试？"
+		_hint_label.add_theme_color_override("font_color", Color("#c0603a"))
+	else:
+		_hint_label.text = Levels.level_hint(Global.current_level)
+		_hint_label.add_theme_color_override("font_color", UI.C_TEXT_LIGHT)
+
+## 死角格：一格同时贴着「上下其一的墙」和「左右其一的墙」时，
+## 四个方向都推不动（推它得站到墙里），箱子进去就再没救。
+func _compute_dead_cells() -> void:
+	_dead_cells.clear()
+	var wall := {}
+	for p in walls:
+		wall[p] = true
+	for y in int(grid_size.y):
+		for x in int(grid_size.x):
+			var pos := Vector2(x, y)
+			if wall.has(pos) or pos in targets:
+				continue
+			var vert := wall.has(pos + Vector2.UP) or wall.has(pos + Vector2.DOWN)
+			var horz := wall.has(pos + Vector2.LEFT) or wall.has(pos + Vector2.RIGHT)
+			if vert and horz:
+				_dead_cells[pos] = true
+
+func _is_dead_cell(pos: Vector2) -> bool:
+	return _dead_cells.has(pos)
+
+func _update_deadlock() -> void:
+	_deadlock = false
+	for b in boxes:
+		if b in targets:
+			continue
+		if _dead_cells.has(b):
+			_deadlock = true
+			break
 
 func _rebuild_grid() -> void:
 	_grid.clear()
@@ -413,6 +457,7 @@ func _try_move(dir: Vector2) -> void:
 	player = new_pos
 	_steps += 1
 	_rebuild_grid()
+	_update_deadlock()
 	_refresh_hud()
 	if pushed_box >= 0:
 		Audio.play_sfx(&"push")
@@ -444,6 +489,7 @@ func _undo() -> void:
 	boxes = state.boxes
 	_steps = state.steps
 	_rebuild_grid()
+	_update_deadlock()
 	_refresh_hud()
 	_refresh_box_positions(0.0)
 	if _fox_sprite:
@@ -496,13 +542,17 @@ func _win() -> void:
 		return
 	_winning = true
 	Audio.play_sfx(&"win")
+	var idx := Global.current_level
+	var prev_best := Global.get_best_steps(idx)
 	Global.complete_current_level(_steps)
-	var best := Global.get_best_steps(Global.current_level)
-	_win_label.text = "过关啦！"
-	_stats_label.text = "本关用了 %d 步 · %s" % [
-		_steps,
-		"刷新了你的记录！" if _steps == best else "最佳记录 %d 步" % best,
-	]
+	var opt := Levels.optimal_steps(idx)
+	var stars := Levels.stars_for(idx, _steps)
+	_stars_label.text = Levels.stars_text(stars)
+	_stars_label.add_theme_color_override("font_color",
+		Color("#f4b942") if stars >= 3 else (Color("#e0a24a") if stars == 2 else Color("#b08c5a")))
+	_win_label.text = "完美通关！" if stars >= 3 else "过关啦！"
+	var rec := " · 刷新了记录！" if _steps < prev_best else ""
+	_stats_label.text = "本关 %d 步 · 最少 %d 步%s" % [_steps, opt, rec]
 	if not Global.has_next():
 		_next_btn.text = "全部通关 · 回菜单"
 	_celebrate_root.visible = true

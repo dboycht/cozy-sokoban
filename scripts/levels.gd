@@ -29,6 +29,12 @@ const LEVEL_HINTS: Array[String] = [
 	"最深处的矮篱把中路挡死了，木箱只能沿两侧长廊往上送，留好退路。",
 ]
 
+## 每关的最少步数（★ 评价基准）。⚠️ 这不是手填的：冒烟测试会用 BFS 重新求解并断言两者一致，
+## 改动任何关卡后若这里忘了同步，测试会直接失败。
+const LEVEL_BEST_STEPS: Array[int] = [3, 9, 7, 11, 10, 16, 18, 21, 26, 28]
+
+const INF := 1 << 30
+
 const LEVELS: Array[String] = [
 	# 第 1 关 — 入门
 	"#########
@@ -139,6 +145,39 @@ static func level_hint(index: int) -> String:
 	if index < 0 or index >= LEVEL_HINTS.size():
 		return ""
 	return LEVEL_HINTS[index]
+
+## 该关的最少步数（★ 基准；越界返回 0）
+static func optimal_steps(index: int) -> int:
+	if index < 0 or index >= LEVEL_BEST_STEPS.size():
+		return 0
+	return LEVEL_BEST_STEPS[index]
+
+## 星级评价：3★ = 走到最优；2★ = 比最优多 20% 以内（至少给 2 步余量）；否则 1★；没有记录 = 0
+static func stars_for(index: int, steps: int) -> int:
+	if steps <= 0 or steps >= INF:
+		return 0
+	var best := optimal_steps(index)
+	if best <= 0:
+		return 1
+	if steps <= best:
+		return 3
+	if steps <= best + maxi(2, int(ceil(best * 0.2))):
+		return 2
+	return 1
+
+## 星级图标串，例如 "★★☆"
+static func stars_text(stars: int) -> String:
+	var s := ""
+	for i in 3:
+		s += "★" if i < stars else "☆"
+	return s
+
+## 已获得的总星数 / 总星数
+static func total_stars(best: Dictionary) -> Array:
+	var got := 0
+	for i in count():
+		got += stars_for(i, int(best.get(i, INF)))
+	return [got, count() * 3]
 
 ## 获取指定关卡的 ASCII 地图（越界返回空）
 static func get_level(index: int) -> String:

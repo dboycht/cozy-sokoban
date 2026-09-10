@@ -51,6 +51,16 @@ func complete_current_level(steps: int) -> void:
 func get_best_steps(index: int) -> int:
 	return best_steps.get(index, INF)
 
+## 清空进度（标题页「重置进度」用；⚠️ 会写盘，调用前请确认）
+func reset_progress() -> void:
+	_clear_progress()
+	_save_progress()
+
+## 只清内存、不写盘（便于测试与"确认前预演"）
+func _clear_progress() -> void:
+	unlocked_level = 0
+	best_steps.clear()
+
 ## -- 进度存档（存到 user data，不进仓库）--
 
 const SAVE_PATH := "user://save_game.save"
