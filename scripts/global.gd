@@ -76,5 +76,10 @@ func _load_progress() -> void:
 			unlocked_level = data.get("unlocked_level", 0)
 			var best: Variant = data.get("best_steps", {})
 			if best is Dictionary:
-				best_steps = best
+				# ⚠️ JSON 的对象键永远是 String（Godot 4 不再自动转数字），
+				# 必须显式转回 int，否则 get_best_steps(关卡) 永远查不到记录
+				# （表现为：重启后标题页"最少 N 步"消失、过关时永远说刷新记录）
+				best_steps.clear()
+				for k in best:
+					best_steps[int(k)] = int(best[k])
 		file.close()
