@@ -44,6 +44,14 @@ func _notification(what: int) -> void:
 			_graceful_quit()
 		NOTIFICATION_EXIT_TREE:
 			stop_all()
+			if _bgm != null:
+				_bgm.stream = null
+			for p in _pool:
+				p.stream = null
+			# 直接 quit() 的路径（如 --quit-after）没有机会等下一帧，
+			# 这里给音频线程一点时间真正释放 playback，否则仍会偶发"resources still in use"。
+			# 实测：开发版 40ms 足够，而 release 导出版时序更紧，需要 150ms（退出多等这点时间玩家无感）
+			OS.delay_msec(150)
 
 func _graceful_quit() -> void:
 	stop_all()
