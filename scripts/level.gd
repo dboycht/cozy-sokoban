@@ -403,9 +403,11 @@ func _try_move(dir: Vector2) -> void:
 			_bump_animation(dir)
 			return
 		_push_history()
-		boxes.erase(new_pos)
-		boxes.append(box_new)
-		pushed_box = boxes.size() - 1
+		# ⚠️ 必须「原地替换」保持 boxes 下标稳定：_box_sprites[] 按同一顺序建立，
+		# 若用 erase()+append() 把被推箱子挪到末尾，下标就会与贴图错位，
+		# 表现为「推这个箱子，另一个箱子飞过去」（v2 已踩，见 ERROR.md #7）。
+		pushed_box = boxes.find(new_pos)
+		boxes[pushed_box] = box_new
 	else:
 		_push_history()
 	player = new_pos
