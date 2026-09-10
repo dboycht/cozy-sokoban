@@ -91,7 +91,7 @@ func _build_ui() -> void:
 	var btn_reset := UI.make_soft_button("重置 (R)", 13)
 	btn_reset.position = Vector2(546, 534)
 	btn_reset.size = Vector2(88, 34)
-	btn_reset.pressed.connect(func() -> void: load_level(Global.current_level))
+	btn_reset.pressed.connect(_reset_level)
 	_canvas.add_child(btn_reset)
 
 	_hint_label = UI.make_label("", 13, UI.C_TEXT_LIGHT, true)
@@ -140,7 +140,7 @@ func _build_tutorial_ui() -> void:
 	_legend_show(96, 210)
 
 	var keys := UI.make_label(
-		"移动：方向键 或 WASD\n撤销：Z       重置本关：R",
+		"移动：方向键 或 WASD\n撤销：Z       重置本关：R       静音：M",
 		15, UI.C_TEXT, true)
 	keys.position = Vector2(150, 330)
 	keys.size = Vector2(340, 64)
@@ -384,7 +384,7 @@ func _input(event: InputEvent) -> void:
 		_undo()
 		return
 	elif event.is_action_pressed("reset"):
-		load_level(Global.current_level)
+		_reset_level()
 		return
 	else:
 		return
@@ -414,8 +414,15 @@ func _try_move(dir: Vector2) -> void:
 	_steps += 1
 	_rebuild_grid()
 	_refresh_hud()
+	if pushed_box >= 0:
+		Audio.play_sfx(&"push")
+	else:
+		Audio.play_sfx(&"move")
 	_animate(dir, pushed_box)
 	_check_win()
+	# 箱子就位的小铃（若本步直接通关则由 _win() 的过关音效接管，避免叠音）
+	if not _winning and pushed_box >= 0 and boxes[pushed_box] in targets:
+		Audio.play_sfx(&"box_done")
 
 func _push_history() -> void:
 	if _history.size() >= 200:
@@ -431,6 +438,7 @@ func _undo() -> void:
 		return
 	if _tutorial_root and _tutorial_root.visible:
 		return
+	Audio.play_sfx(&"undo")
 	var state: Dictionary = _history.pop_back()
 	player = state.player
 	boxes = state.boxes
@@ -487,6 +495,7 @@ func _win() -> void:
 	if _winning:
 		return
 	_winning = true
+	Audio.play_sfx(&"win")
 	Global.complete_current_level(_steps)
 	var best := Global.get_best_steps(Global.current_level)
 	_win_label.text = "过关啦！"
@@ -503,3 +512,8 @@ func _go_next() -> void:
 		Global.start_level(Global.current_level + 1)
 	else:
 		Global.go_to_title()
+
+## 重置当前关卡（带音效；输入 R 与底部按钮都走这里）
+func _reset_level() -> void:
+	Audio.play_sfx(&"reset")
+	load_level(Global.current_level)

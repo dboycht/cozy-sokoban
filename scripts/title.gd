@@ -88,7 +88,7 @@ func _build() -> void:
 		add_child(b)
 
 	# ---- 底部版本提示 ----
-	var hint := UI.make_label("方向键 / WASD 移动  ·  Z 撤销  ·  R 重置", 14, Color(0.36, 0.3, 0.24, 0.7), true)
+	var hint := UI.make_label("方向键 / WASD 移动  ·  Z 撤销  ·  R 重置  ·  M 静音", 14, Color(0.36, 0.3, 0.24, 0.7), true)
 	hint.position = Vector2(0, 552)
 	hint.size = Vector2(640, 22)
 	add_child(hint)

@@ -75,6 +75,7 @@ static func make_button(text: String, font_size: int = 18, bg: Color = C_ORANGE,
 	sb_d.shadow_size = 0
 	btn.add_theme_stylebox_override("disabled", sb_d)
 	btn.add_theme_color_override("font_disabled_color", Color(0.55, 0.52, 0.48))
+	btn.pressed.connect(_ui_click)
 	return btn
 
 ## 文本标签（可多行、居中）
@@ -110,4 +111,9 @@ static func make_soft_button(text: String, font_size: int = 14) -> Button:
 	btn.add_theme_stylebox_override("hover", sb_h)
 	btn.add_theme_stylebox_override("pressed", sb_h)
 	btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	btn.pressed.connect(_ui_click)
 	return btn
+
+## 所有由本工厂产出的按钮统一带一声轻点音（禁用按钮不会 emit pressed）
+static func _ui_click() -> void:
+	Audio.play_sfx(&"click")
