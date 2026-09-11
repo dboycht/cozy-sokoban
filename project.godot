@@ -7,7 +7,7 @@
 config/name="Cozy Sokoban"
 config/description="像素风闯关推箱子治愈风小游戏"
 run/main_scene="res://scenes/title.tscn"
-config/version="1.0.2"
+config/version="2.0.0"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 config/icon="res://assets/sprites/icon.svg"
 config/windows_native_icon="res://assets/icons/cozy.ico"
