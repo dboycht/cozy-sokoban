@@ -5,8 +5,14 @@ extends Node
 
 const SFX_VOLUME := -7.0      # 音效基准音量
 const BGM_VOLUME := -18.0     # BGM 刻意压低，做背景
+const BGM_FADE := 0.8         # 交叉淡入淡出时长
 
 const POOL_SIZE := 8
+
+const BGM_PATHS: Array[String] = [
+	"res://assets/audio/bgm.wav",
+	"res://assets/audio/bgm2.wav",
+]
 
 var SFX: Dictionary = {
 	"move": preload("res://assets/audio/move.wav"),
@@ -23,6 +29,8 @@ var muted := false
 var _pool: Array[AudioStreamPlayer] = []
 var _next := 0
 var _bgm: AudioStreamPlayer
+var _bgm_index := -1
+var _bgm_tracks: Array[AudioStreamWAV] = []
 
 func _ready() -> void:
 	for i in POOL_SIZE:
@@ -30,7 +38,17 @@ func _ready() -> void:
 		p.volume_db = SFX_VOLUME
 		add_child(p)
 		_pool.append(p)
-	_start_bgm()
+	# 运行时加载 BGM（不 preload，避免素材还没生成时编译失败，见 ERROR.md #8）
+	for path in BGM_PATHS:
+		var s: AudioStreamWAV = load(path)
+		if s != null:
+			s.loop_mode = AudioStreamWAV.LOOP_FORWARD
+			s.loop_begin = 0
+			s.loop_end = int(s.get_length() * s.mix_rate)
+			_bgm_tracks.append(s)
+	_bgm = AudioStreamPlayer.new()
+	add_child(_bgm)
+	_play_bgm(0)
 	# 自己接管关窗流程，好在退出前停声（见下方 _notification 注释）
 	get_tree().auto_accept_quit = false
 
@@ -93,18 +111,31 @@ func toggle_mute() -> bool:
 	AudioServer.set_bus_mute(AudioServer.get_bus_index("Master"), muted)
 	return muted
 
-func _start_bgm() -> void:
-	var stream: AudioStreamWAV = load("res://assets/audio/bgm.wav")
-	if stream == null:
+## 播放指定索引的 BGM（带淡入）。循环点已在 _ready 里预设好。
+func _play_bgm(index: int) -> void:
+	if index < 0 or index >= _bgm_tracks.size():
 		return
-	# 循环点在代码里设，不依赖 .import 的循环配置
-	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	stream.loop_begin = 0
-	stream.loop_end = int(stream.get_length() * stream.mix_rate)
-	_bgm = AudioStreamPlayer.new()
-	_bgm.stream = stream
-	_bgm.volume_db = -40.0        # 从近乎无声淡入
-	add_child(_bgm)
+	_bgm_index = index
+	_bgm.stream = _bgm_tracks[index]
+	_bgm.volume_db = -40.0
 	_bgm.play()
 	var tw := create_tween()
 	tw.tween_property(_bgm, "volume_db", BGM_VOLUME, 2.5)
+
+## 交叉淡入淡出切换到指定 BGM；已在播放同一首则跳过。
+func switch_bgm(index: int) -> void:
+	if index < 0 or index >= _bgm_tracks.size():
+		return
+	if index == _bgm_index and _bgm != null and _bgm.playing:
+		return
+	if _bgm == null or not _bgm.playing:
+		_play_bgm(index)
+		return
+	# 先淡出当前，再淡入新的
+	var tw := create_tween()
+	tw.tween_property(_bgm, "volume_db", -40.0, BGM_FADE)
+	tw.tween_callback(func() -> void: _play_bgm(index))
+
+## 返回当前播放的 BGM 索引（供测试断言用）
+func current_bgm_index() -> int:
+	return _bgm_index

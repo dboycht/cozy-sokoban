@@ -13,8 +13,12 @@ const TX_BOX := preload("res://assets/sprites/box.png")
 const TX_BOX_DONE := preload("res://assets/sprites/box_done.png")
 const TX_WALL := preload("res://assets/sprites/wall.png")
 const TX_FOX := preload("res://assets/sprites/fox.png")
+const TX_FOX_UP := preload("res://assets/sprites/fox_up.png")
+const TX_FOX_LEFT := preload("res://assets/sprites/fox_left.png")
 const TX_FLOWER := preload("res://assets/sprites/flower.png")
 const TX_FLOWER2 := preload("res://assets/sprites/flower2.png")
+const TX_FLOWER3 := preload("res://assets/sprites/flower3.png")
+const TX_MUSHROOM := preload("res://assets/sprites/mushroom.png")
 
 # ---- 逻辑状态 ----
 var walls: Array[Vector2] = []
@@ -33,6 +37,7 @@ var _deadlock := false
 var _board_origin := Vector2.ZERO
 var _box_sprites: Array[Sprite2D] = []
 var _fox_sprite: Sprite2D
+var _facing := Vector2.DOWN
 var _board_root: Node2D
 
 # ---- UI（屏幕绝对坐标）----
@@ -257,6 +262,8 @@ func load_level(index: int) -> void:
 	if data.is_empty():
 		push_warning("CozySokoban: 关卡 %d 不存在" % index)
 		return
+	# 按关卡奇偶切换 BGM（偶数关→bgm，奇数关→bgm2），给玩家变化感
+	Audio.switch_bgm(index % 2)
 	walls = data.walls
 	boxes = data.boxes.duplicate()
 	targets = data.targets
@@ -362,10 +369,18 @@ func _build_board() -> void:
 			sp.scale = Vector2(TILE / sp.texture.get_width(), TILE / sp.texture.get_height())
 			sp.position = _cell_center(cell)
 			_board_root.add_child(sp)
-			# 空地撒花装饰（避开墙、目标、出生点）
-			if rng.randf() < 0.06 and cell not in walls and cell not in targets and cell != player:
+			# 空地撒花/蘑菇装饰（避开墙、目标、出生点）
+			if rng.randf() < 0.07 and cell not in walls and cell not in targets and cell != player:
 				var fl := Sprite2D.new()
-				fl.texture = TX_FLOWER if rng.randf() < 0.6 else TX_FLOWER2
+				var pick := rng.randf()
+				if pick < 0.40:
+					fl.texture = TX_FLOWER
+				elif pick < 0.70:
+					fl.texture = TX_FLOWER2
+				elif pick < 0.88:
+					fl.texture = TX_FLOWER3
+				else:
+					fl.texture = TX_MUSHROOM
 				fl.scale = Vector2(TILE / fl.texture.get_width(), TILE / fl.texture.get_height())
 				fl.position = _cell_center(cell)
 				fl.z_index = 0.5
@@ -389,9 +404,11 @@ func _build_board() -> void:
 	# 箱子
 	for pos in boxes:
 		_box_sprites.append(_make_box_sprite(pos, pos in targets))
-	# 狐狸
+	# 狐狸（朝向贴图：默认正面/朝下）
+	_facing = Vector2.DOWN
 	_fox_sprite = Sprite2D.new()
 	_fox_sprite.texture = TX_FOX
+	_fox_sprite.flip_h = false
 	var fs := TILE / TX_FOX.get_width()
 	_fox_sprite.scale = Vector2(fs * 1.05, fs * 1.05)
 	_fox_sprite.position = _cell_center(player)
@@ -497,8 +514,7 @@ func _undo() -> void:
 
 func _animate(dir: Vector2, pushed_box: int) -> void:
 	if _fox_sprite:
-		if dir.x != 0:
-			_fox_sprite.flip_h = dir.x > 0
+		_update_facing(dir)
 		var tw := create_tween()
 		tw.tween_property(_fox_sprite, "position", _cell_center(player), MOVE_DURATION)\
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
@@ -510,6 +526,25 @@ func _animate(dir: Vector2, pushed_box: int) -> void:
 		var tw2 := create_tween()
 		tw2.tween_property(bs, "position", _cell_center(boxes[pushed_box]), MOVE_DURATION)\
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+## 按移动方向切换狐狸朝向贴图：
+## 朝下=正面 fox.png · 朝上=背面 fox_up.png · 左右=侧面 fox_left.png（右方向用 flip_h）
+func _update_facing(dir: Vector2) -> void:
+	if dir == Vector2.ZERO:
+		return
+	_facing = dir
+	if dir == Vector2.DOWN:
+		_fox_sprite.texture = TX_FOX
+		_fox_sprite.flip_h = false
+	elif dir == Vector2.UP:
+		_fox_sprite.texture = TX_FOX_UP
+		_fox_sprite.flip_h = false
+	elif dir == Vector2.LEFT:
+		_fox_sprite.texture = TX_FOX_LEFT
+		_fox_sprite.flip_h = false
+	elif dir == Vector2.RIGHT:
+		_fox_sprite.texture = TX_FOX_LEFT
+		_fox_sprite.flip_h = true
 
 func _refresh_box_positions(dur: float) -> void:
 	for i in boxes.size():
@@ -524,6 +559,7 @@ func _refresh_box_positions(dur: float) -> void:
 func _bump_animation(dir: Vector2) -> void:
 	if not _fox_sprite:
 		return
+	_update_facing(dir)   # 撞墙也转向，让狐狸"看向"被挡的方向
 	var orig := _cell_center(player)
 	var tw := create_tween()
 	tw.tween_property(_fox_sprite, "position", orig + dir * 4.0, 0.05)

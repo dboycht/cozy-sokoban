@@ -7,6 +7,7 @@ const TX_BOX := preload("res://assets/sprites/box.png")
 var _confirm_root: Control
 
 func _ready() -> void:
+	Audio.switch_bgm(0)   # 标题页固定播放第一首 BGM
 	_build_body()
 	_build_confirm()
 
